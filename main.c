@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-
+#include <signal.h>
 
 struct city
 {
@@ -13,6 +13,17 @@ struct city
 
 struct city *list;
 int **adjMatrix;
+
+void alarmHandler(int sig)
+{
+	printf ("Timer expired\n");
+
+	//Print results
+
+	free (adjMatrix);
+	free (list);
+	exit (0);
+}
 
 void getArgs (char *argv[], int argc, int *cityCount)
 {
@@ -156,10 +167,14 @@ int main (int argc, char *argv[])
 	int cityCount;
 	int i;
 
+	signal (SIGALRM, alarmHandler);
+
+	//Starting timer
+	alarm (300);
+
 	getArgs (argv, argc, &cityCount);
 
 	getAdjMatrix (cityCount);
-
 
 
 	free (adjMatrix);
