@@ -29,7 +29,6 @@ struct edge
 
 std::vector <struct city> list;
 std::priority_queue <struct edge> edgeList;
-//std::vector <std::vector <struct edge>> edgeList;
 
 void alarmHandler(int sig)
 {
