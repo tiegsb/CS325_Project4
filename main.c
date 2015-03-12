@@ -1,8 +1,10 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <signal.h>
+#include <unistd.h>
 
 struct city
 {
@@ -25,20 +27,49 @@ void alarmHandler(int sig)
 	exit (0);
 }
 
-void getArgs (char *argv[], int argc, int *cityCount)
+void getArgs (char *argv[], int argc, int *cityCount, int *timerMinutes, char *filename)
 {
 	FILE *fp;
 	int size = 10;
 	char line[50];
 	char *token;
+	int c;
 
-	*cityCount = 0;
+	//Get flags
+	 opterr = 0;
 
-	if (argc !=2)
+	while ((c = getopt (argc, argv, "t:o:")) != -1)
 	{
-		fprintf (stderr, "usage: %s <filename>\n", argv[0]);
+		switch (c)
+		{
+			case 't':
+				*timerMinutes = (int) strtol (optarg, NULL, 10);
+				break;
+			case 'o':
+				strcpy (filename, optarg);
+				break;
+			case '?':
+				if (optopt == 'o' || optopt == 't')
+					fprintf (stderr, "Option -%c requires an argument\n", optopt);
+				else if (isprint (optopt))
+					fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+				else
+					fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
+				exit (1);
+			default:
+				exit (1);
+		}
+	}
+
+	if (optind >= argc)
+	{
+		fprintf (stderr, "usage: %s [input file] [-o output file] [-t timer minutes]\n", argv[0]);
+		fprintf (stderr, "     -o: Set output filename. Unset defaults to stdout.\n");
+		fprintf (stderr, "     -t: Set timer in minutes.\n");
 		exit (1);
 	}
+
+	*cityCount = 0;
 
 	if (allocateMemory (*cityCount, size) == -1)
 	{
@@ -46,7 +77,7 @@ void getArgs (char *argv[], int argc, int *cityCount)
 		exit (1);
 	}
 
-	fp = fopen (argv[1], "r");
+	fp = fopen (argv[optind], "r");
 
 	//Check to see if file opened successfully
 	if (fp == NULL)
@@ -166,15 +197,21 @@ int main (int argc, char *argv[])
 {
 	int cityCount;
 	int i;
+	int timerMinutes = 0;
+	char filename[255];
 
 	signal (SIGALRM, alarmHandler);
 
-	//Starting timer
-	alarm (300);
+	getArgs (argv, argc, &cityCount, &timerMinutes, filename);
 
-	getArgs (argv, argc, &cityCount);
+	//Starting timer if set
+	alarm (timerMinutes * 60);
 
 	getAdjMatrix (cityCount);
+
+
+
+
 
 
 	free (adjMatrix);
