@@ -47,7 +47,7 @@ struct vertex
 std::vector <struct city> list;
 std::priority_queue <struct edge> edgeList;
 std::vector <int> result;
-char outputFile[255];
+char filename[255];
 
 void getArgs (char *argv[], int argc, int *cityCount, int *timerMinutes)
 {
@@ -60,18 +60,15 @@ void getArgs (char *argv[], int argc, int *cityCount, int *timerMinutes)
 	//Get flags
 	 opterr = 0;
 
-	while ((c = getopt (argc, argv, "t:o:")) != -1)
+	while ((c = getopt (argc, argv, "t:")) != -1)
 	{
 		switch (c)
 		{
 			case 't':
 				*timerMinutes = (int) strtol (optarg, NULL, 10);
 				break;
-			case 'o':
-				strcpy (outputFile, optarg);
-				break;
 			case '?':
-				if (optopt == 'o' || optopt == 't')
+				if (optopt == 't')
 					fprintf (stderr, "Option -%c requires an argument\n", optopt);
 				else if (isprint (optopt))
 					fprintf (stderr, "Unknown option `-%c'.\n", optopt);
@@ -85,15 +82,15 @@ void getArgs (char *argv[], int argc, int *cityCount, int *timerMinutes)
 
 	if (optind >= argc)
 	{
-		fprintf (stderr, "usage: %s [input file] [-o output file] [-t timer minutes]\n", argv[0]);
-		fprintf (stderr, "     -o: Set output filename. Unset defaults to stdout.\n");
+		fprintf (stderr, "usage: %s [input file] [-t timer minutes]\n", argv[0]);
 		fprintf (stderr, "     -t: Set timer in minutes.\n");
 		exit (1);
 	}
 
 	*cityCount = 0;
 
-	fp = fopen (argv[optind], "r");
+	strcpy(filename, argv[optind]);
+	fp = fopen (filename, "r");
 
 	//Check to see if file opened successfully
 	if (fp == NULL)
@@ -275,7 +272,7 @@ void greedy(int cityCount)
 	result.push_back(0);
 	result.push_back(0);
 
-	total = greedyList[0].uDist + greedyList[0].vDist;
+	total = greedyList[0].vDist;
 	prev = 0;
 	next = greedyList[0].v;
 
@@ -301,13 +298,32 @@ void greedy(int cityCount)
 
 void outputResults()
 {
-	for (int i = 0; i < result.size(); i++)
+	FILE *fp;
+
+	strcat(filename, ".tour");
+
+	fp = fopen (filename, "w");
+
+	//Check to see if file opened successfully
+	if (fp == NULL)
 	{
-		printf ("%d\n", result[i]);
+		fprintf (stderr, "File failed to open\n");
+
+		//Print results to stdout
+		for (int i = 0; i < result.size(); i++)
+		{
+			printf ("%d\n", result[i]);
+		}
+
+		exit (1);
 	}
 
-	//Outputfile
+	for (int i = 0; i < result.size(); i++)
+	{
+		fprintf (fp, "%d\n", result[i]);
+	}
 
+	fclose (fp);
 }
 
 void alarmHandler(int sig)
