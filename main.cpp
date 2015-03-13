@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <cmath>
 #include <csignal>
 #include <unistd.h>
@@ -27,20 +28,28 @@ struct edge
 	}
 };
 
+struct vertex
+{
+	int u;
+	int v;
+	int uDist;
+	int vDist;
+	bool uSet;
+	bool vSet;
+
+	vertex()
+	{
+		uSet = false;
+		vSet = false;
+	}
+};
+
 std::vector <struct city> list;
 std::priority_queue <struct edge> edgeList;
+std::vector <int> result;
+char outputFile[255];
 
-void alarmHandler(int sig)
-{
-	printf ("Timer expired\n");
-
-	//Print results
-
-
-	exit (0);
-}
-
-void getArgs (char *argv[], int argc, int *cityCount, int *timerMinutes, char *filename)
+void getArgs (char *argv[], int argc, int *cityCount, int *timerMinutes)
 {
 	FILE *fp;
 	char line[50];
@@ -59,7 +68,7 @@ void getArgs (char *argv[], int argc, int *cityCount, int *timerMinutes, char *f
 				*timerMinutes = (int) strtol (optarg, NULL, 10);
 				break;
 			case 'o':
-				strcpy (filename, optarg);
+				strcpy (outputFile, optarg);
 				break;
 			case '?':
 				if (optopt == 'o' || optopt == 't')
@@ -150,26 +159,187 @@ void getAdjMatrix (int cityCount)
 	}
 }
 
+void greedy(int cityCount)
+{
+	std::vector <struct vertex> greedyList(cityCount);
+	int numberSet = 0;
+	int start, prev, next, u, v, total;
+	bool loop;
+
+	while (edgeList.size() > 0)
+	{
+		u = edgeList.top().u;
+		v = edgeList.top().v;
+
+		if (!(greedyList[u].vSet || greedyList[v].vSet))
+		{
+			if (!(greedyList[u].uSet && greedyList[v].uSet))
+			{
+				numberSet++;
+			
+				if (!greedyList[u].uSet)
+				{
+					greedyList[u].uSet = true;
+					greedyList[u].u = edgeList.top().v;				
+					greedyList[u].uDist = edgeList.top().dist;
+				}
+				else
+				{
+					greedyList[u].vSet = true;
+					greedyList[u].v = edgeList.top().v;
+					greedyList[u].vDist = edgeList.top().dist;
+				}
+
+				if (!greedyList[v].uSet)
+				{
+					greedyList[v].uSet = true;
+					greedyList[v].u = edgeList.top().u;
+					greedyList[v].uDist = edgeList.top().dist;
+				}
+				else
+				{
+					greedyList[v].vSet = true;
+					greedyList[v].v = edgeList.top().u;
+					greedyList[v].vDist = edgeList.top().dist;
+				}
+			}
+			else
+			{
+				//Last edge
+				if (cityCount == numberSet + 1)
+				{
+					greedyList[u].vSet = true;
+					greedyList[u].v = edgeList.top().v;
+					greedyList[u].vDist = edgeList.top().dist;
+
+					greedyList[v].vSet = true;
+					greedyList[v].v = edgeList.top().u;
+					greedyList[v].vDist = edgeList.top().dist;
+
+					break;
+				}
+				//Check for loop
+				else
+				{
+					start = u;
+					prev = u;
+					next = greedyList[u].u;
+					loop = true;
+
+					while (next != start && loop)
+					{
+						if (!(greedyList[next].uSet && greedyList[next].vSet))
+						{
+							if(next == v)
+								break;
+
+							loop = false;
+						}
+						else
+						{
+							if (prev == greedyList[next].u)
+							{
+								prev = next;
+								next = greedyList[next].v;
+							}
+							else
+							{
+								prev = next;
+								next = greedyList[next].u;
+							}
+						}
+					}
+
+					if(!loop)
+					{
+						numberSet++;
+
+						greedyList[u].vSet = true;
+						greedyList[u].v = edgeList.top().v;
+						greedyList[u].vDist = edgeList.top().dist;
+
+						greedyList[v].vSet = true;
+						greedyList[v].v = edgeList.top().u;
+						greedyList[v].vDist = edgeList.top().dist;
+					}
+				}
+			}
+		}
+			
+		edgeList.pop();
+	}
+
+	//Trace path
+	total = 0;
+
+	result.push_back(0);
+	result.push_back(0);
+
+	total = greedyList[0].uDist + greedyList[0].vDist;
+	prev = 0;
+	next = greedyList[0].v;
+
+	while (next != 0)
+	{
+		result.push_back(next);
+		if (prev == greedyList[next].u)
+		{
+			prev = next;
+			total += greedyList[next].vDist;
+			next = greedyList[next].v;
+		}
+		else
+		{
+			prev = next;
+			total += greedyList[next].uDist;
+			next = greedyList[next].u;
+		}
+	}
+
+	result[0] = total;
+}
+
+void outputResults()
+{
+	for (int i = 0; i < result.size(); i++)
+	{
+		printf ("%d\n", result[i]);
+	}
+
+	//Outputfile
+
+}
+
+void alarmHandler(int sig)
+{
+	printf ("Timer expired\n");
+
+	outputResults();
+
+	exit (0);
+}
+
 int main (int argc, char *argv[])
 {
 	int cityCount;
 	int i;
 	int timerMinutes = 0;
-	char filename[255];
 
 	signal (SIGALRM, alarmHandler);
 
-	getArgs (argv, argc, &cityCount, &timerMinutes, filename);
+	getArgs (argv, argc, &cityCount, &timerMinutes);
 
 	//Starting timer if set
 	alarm (timerMinutes * 60);
 
 	getAdjMatrix (cityCount);
 
+	greedy(cityCount);
 
+	//Stop alarm
+	alarm (0);
 
-
-
+	outputResults();
 
 	exit (0);
 }
