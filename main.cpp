@@ -28,6 +28,18 @@ struct edge
 	}
 };
 
+struct cwedge
+{
+	int u;
+	int v;
+	int savings;
+
+	bool operator < (const cwedge &rhs) const
+	{
+	    return savings < rhs.savings;
+	}
+};
+
 struct vertex
 {
 	int u;
@@ -44,8 +56,15 @@ struct vertex
 	}
 };
 
+struct cwvertex
+{
+	int u;
+	int v;
+};
+
 std::vector <struct city> list;
 std::priority_queue <struct edge> edgeList;
+std::vector <std::vector <int> > matrix;
 std::vector <int> result;
 char filename[255];
 
@@ -125,7 +144,8 @@ void getArgs (char *argv[], int argc, int *cityCount, int *timerMinutes)
 	return;
 }
 
-void getAdjMatrix (int cityCount)
+//Get edge list for greedy algorithm
+void getEdgeList (int cityCount)
 {
 	double dist;
 	long int result;
@@ -156,6 +176,7 @@ void getAdjMatrix (int cityCount)
 	}
 }
 
+//Run greedy algorithm
 void greedy(int cityCount)
 {
 	std::vector <struct vertex> greedyList(cityCount);
@@ -296,6 +317,256 @@ void greedy(int cityCount)
 	result[0] = total;
 }
 
+//Get adjacenct matric and hub for Clarke-Wright algorithm
+int getAdjMatrix (int cityCount)
+{
+	double dist;
+	long int result;
+	int xdiff;
+	int ydiff;
+	int xmin = 9999999;
+	int xmax = 0;
+	int ymin = 9999999;
+	int ymax = 0;
+	int xcenter, ycenter;
+	int hub, hubDist;
+
+	matrix.resize (cityCount);
+	for (int i = 0; i < cityCount; ++i)
+		matrix[i].resize (cityCount);
+
+	//Build adjacency matrix
+	for (int i = 0; i < cityCount; i++)
+	{
+		for (int j = 0; j < cityCount; j++)
+		{
+			xdiff = list[i].x - list[j].x;
+			ydiff = list[i].y - list[j].y;
+			result = (xdiff * xdiff) + (ydiff * ydiff);
+
+			dist = sqrt ((double)result);
+
+			if (dist - (int)dist >= 0.5)
+				dist++;
+
+			matrix[i][j] = (int)dist;
+		}
+
+		//Get graph center
+		if (list[i].x < xmin)
+			xmin = list[i].x;
+		if (list[i].x > xmax)
+			xmax = list[i].x;
+
+		if (list[i].y < ymin)
+			ymin = list[i].y;
+		if (list[i].y > ymax)
+			ymax = list[i].y;
+	}
+
+	//Find hub for Clarke-Wright
+	xcenter = (xmax + xmin) / 2;
+	ycenter = (ymax + ymin) / 2;
+
+	hubDist = 9999999;
+	for (int i = 0; i < cityCount; i++)
+	{
+		xdiff = list[i].x - xcenter;
+		ydiff = list[i].y - ycenter;
+		result = (xdiff * xdiff) + (ydiff * ydiff);
+
+		dist = sqrt ((double)result);
+
+		if (dist - (int)dist >= 0.5)
+			dist++;
+
+		if (dist < hubDist)
+		{
+			hub = i;
+			hubDist = dist;
+		}
+	}
+
+	return hub;
+}
+
+//Run Clarke-Wright algorithm
+void cw (int hub, int cityCount)
+{
+	int savings;
+	std::priority_queue <struct cwedge> savingsList;
+	struct cwedge temp;
+	int numberSet = 0;
+	int start, prev, next, u, v, total;
+	bool loop;
+	std::vector <int> newResult;
+
+	//Build priority queue for savings
+	for (int i = 0; i < cityCount; i++)
+	{
+		for (int j = i + 1; j < cityCount; j++)
+		{
+			savings = matrix[hub][i] + matrix[hub][j] - matrix[i][j];
+
+			temp.u = i;
+			temp.v = j;
+			temp.savings = savings;
+
+			savingsList.push (temp);
+		}
+	}
+
+	//Creating list of vertices
+	std::vector <struct vertex> vertexList;
+	vertexList.resize (cityCount);
+
+	for (int i = 0; i < cityCount; ++i)
+	{
+		vertexList[i].u = hub;
+		vertexList[i].v = hub;
+	}
+
+	while (savingsList.size() > 0)
+	{
+		u = savingsList.top().u;
+		v = savingsList.top().v;
+
+		if ((vertexList[u].u == hub || vertexList[u].v == hub) && (vertexList[v].u == hub || vertexList[v].v == hub))
+		{
+			//Check cycle
+			loop = false;
+			prev = u;
+			if(vertexList[u].u == hub)
+				next = vertexList[u].v;
+			else
+				next = vertexList[u].u;
+
+			while (next != hub)
+			{
+				if (next == v)
+				{
+					loop = true;
+					break;
+				}
+
+				if (prev == vertexList[next].u)
+				{
+					prev = next;
+					next = vertexList[next].v;
+				}
+				else
+				{
+					prev = next;
+					next = vertexList[next].u;
+				}
+			}
+
+			//If no inner cycle created join cycles
+			if (!loop)
+			{
+				numberSet++;
+
+				if (vertexList[u].u == hub)
+					vertexList[u].u = v;
+				else
+					vertexList[u].v = v;
+
+				if (vertexList[v].u == hub)
+					vertexList[v].u = u;
+				else
+					vertexList[v].v = u;
+			}
+		}
+
+		if (numberSet + 2 == cityCount)
+		{
+			//Set hub vertex
+
+			prev = u;
+			if(vertexList[u].u == v)
+				next = vertexList[u].v;
+			else
+				next = vertexList[u].u;
+
+			while (next != hub)
+			{
+				if (prev == vertexList[next].u)
+				{
+					prev = next;
+					next = vertexList[next].v;
+				}
+				else
+				{
+					prev = next;
+					next = vertexList[next].u;
+				}
+			}
+
+			vertexList[hub].u = prev;
+
+			prev = v;
+			if(vertexList[v].u == u)
+				next = vertexList[v].v;
+			else
+				next = vertexList[v].u;
+
+			while (next != hub)
+			{
+				if (prev == vertexList[next].u)
+				{
+					prev = next;
+					next = vertexList[next].v;
+				}
+				else
+				{
+					prev = next;
+					next = vertexList[next].u;
+				}
+			}
+
+			vertexList[hub].v = prev;
+
+			break;
+		}
+
+		savingsList.pop();
+	}
+
+	//Trace path and calculate total
+	total = 0;
+
+	newResult.push_back(0);
+	newResult.push_back(0);
+
+	prev = 0;
+	next = vertexList[0].v;
+
+	while (next != 0)
+	{
+		newResult.push_back(next);
+		total += matrix[prev][next];
+
+		if (prev == vertexList[next].u)
+		{
+			prev = next;
+			next = vertexList[next].v;
+		}
+		else
+		{
+			prev = next;
+			next = vertexList[next].u;
+		}
+	}
+
+	total += matrix[prev][next];
+
+	newResult[0] = total;
+
+	//Check if result is better than greedy
+	if (newResult[0] < result[0])
+		result = newResult;
+}
+
 void outputResults()
 {
 	FILE *fp;
@@ -318,6 +589,7 @@ void outputResults()
 		exit (1);
 	}
 
+	//Write to file
 	for (int i = 0; i < result.size(); i++)
 	{
 		fprintf (fp, "%d\n", result[i]);
@@ -326,6 +598,8 @@ void outputResults()
 	fclose (fp);
 }
 
+//Catches alarm signal
+//Prints results and exits
 void alarmHandler(int sig)
 {
 	printf ("Timer expired\n");
@@ -338,19 +612,24 @@ void alarmHandler(int sig)
 int main (int argc, char *argv[])
 {
 	int cityCount;
-	int i;
+	int i, hub;
 	int timerMinutes = 0;
 
 	signal (SIGALRM, alarmHandler);
 
+	//Get arguments
 	getArgs (argv, argc, &cityCount, &timerMinutes);
 
 	//Starting timer if set
 	alarm (timerMinutes * 60);
 
-	getAdjMatrix (cityCount);
-
+	//Greedy algorithm
+	getEdgeList (cityCount);
 	greedy(cityCount);
+
+	//Clarke-Wright algorithm
+	hub = getAdjMatrix (cityCount);
+	cw (hub, cityCount);
 
 	//Stop alarm
 	alarm (0);
